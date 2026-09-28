@@ -34,8 +34,13 @@ public final class Mathf{
     private static final double BIG_ENOUGH_FLOOR = BIG_ENOUGH_INT;
     private static final double CEIL = 0.9999999;
     private static final double BIG_ENOUGH_ROUND = BIG_ENOUGH_INT + 0.5f;
-    private static final Rand seedr = new Rand();
-    private static final Vec2 v1 = new Vec2(), v2 = new Vec2(), v3 = new Vec2();
+    private static final ThreadLocal<Rand> seedr = ThreadLocal.withInitial(Rand::new);
+    private static final ThreadLocal<VecScratch> vecScratch = ThreadLocal.withInitial(VecScratch::new);
+
+    private static class VecScratch{
+        final Vec2 v1 = new Vec2();
+        final Vec2 v3 = new Vec2();
+    }
 
     static{
         for(int i = 0; i < sinCount; i++)
@@ -49,7 +54,23 @@ public final class Mathf{
         sinTable[(int)(270 * degToIndex) & sinMask] = -1f;
     }
 
+    /** Legacy process-global RNG retained for compatibility. Context-aware runtime code should use {@link #rand()}. */
     public static Rand rand = new Rand();
+    private static final ThreadLocal<Rand> boundRand = new ThreadLocal<>();
+
+    /** Returns the RNG bound to the current runtime scope, or the legacy process RNG outside a scope. */
+    public static Rand rand(){
+        Rand value = boundRand.get();
+        return value == null ? rand : value;
+    }
+
+    /** Binds a runtime-owned RNG to this thread and returns the previous binding for scope restoration. */
+    public static Rand bindRand(Rand value){
+        Rand previous = boundRand.get();
+        if(value == null) boundRand.remove();
+        else boundRand.set(value);
+        return previous;
+    }
 
     /** Returns the sine in radians from a lookup table. */
     public static float sin(float radians){
@@ -72,7 +93,7 @@ public final class Mathf{
     }
 
     public static float absin(float scl, float mag){
-        return absin(Time.time, scl, mag);
+        return absin(Time.time(), scl, mag);
     }
 
     public static float absin(float in, float scl, float mag){
@@ -84,7 +105,7 @@ public final class Mathf{
     }
 
     public static float sin(float scl, float mag){
-        return sin(Time.time / scl) * mag;
+        return sin(Time.time() / scl) * mag;
     }
 
     public static float sin(float radians, float scl, float mag){
@@ -234,36 +255,36 @@ public final class Mathf{
     }
 
     public static boolean chanceDelta(double d){
-        return rand.nextFloat() < d * Time.delta;
+        return rand().nextFloat() < d * Time.delta();
     }
 
     public static boolean chance(double d){
-        return d >= 1f || rand.nextFloat() < d;
+        return d >= 1f || rand().nextFloat() < d;
     }
 
     /** Returns a random number between 0 (inclusive) and the specified value (inclusive). */
     public static int random(int range){
-        return rand.nextInt(range + 1);
+        return rand().nextInt(range + 1);
     }
 
     /** Returns a random number between start (inclusive) and end (inclusive). */
     public static int random(int start, int end){
-        return start + rand.nextInt(end - start + 1);
+        return start + rand().nextInt(end - start + 1);
     }
 
     /** Returns a random number between 0 (inclusive) and the specified value (inclusive). */
     public static long random(long range){
-        return (long)(rand.nextDouble() * range);
+        return (long)(rand().nextDouble() * range);
     }
 
     /** Returns a random number between start (inclusive) and end (inclusive). */
     public static long random(long start, long end){
-        return start + (long)(rand.nextDouble() * (end - start));
+        return start + (long)(rand().nextDouble() * (end - start));
     }
 
     /** Returns a random boolean value. */
     public static boolean randomBoolean(){
-        return rand.nextBoolean();
+        return rand().nextBoolean();
     }
 
     /** Returns true if a random value between 0 and 1 is less than the specified value. */
@@ -273,54 +294,54 @@ public final class Mathf{
 
     /** Returns random number between 0.0 (inclusive) and 1.0 (exclusive). */
     public static float random(){
-        return rand.nextFloat();
+        return rand().nextFloat();
     }
 
     /** Returns a random number between 0 (inclusive) and the specified value (exclusive). */
     public static float random(float range){
-        return rand.nextFloat() * range;
+        return rand().nextFloat() * range;
     }
 
     /** Returns a random number between start (inclusive) and end (exclusive). */
     public static float random(float start, float end){
-        return start + rand.nextFloat() * (end - start);
+        return start + rand().nextFloat() * (end - start);
     }
 
     /** Returns -1 or 1, randomly. */
     public static int randomSign(){
-        return 1 | (rand.nextInt() >> 31);
+        return 1 | (rand().nextInt() >> 31);
     }
 
     //TODO these can be optimized to a single function, setting the seed and getting a result may be expensive
 
     /** Inclusive. */
     public static int randomSeed(long seed, int min, int max){
-        seedr.setSeed(seed);
+        seedr.get().setSeed(seed);
         if(isPowerOfTwo(max)){
-            seedr.nextInt();
+            seedr.get().nextInt();
         }
-        return seedr.nextInt(max - min + 1) + min;
+        return seedr.get().nextInt(max - min + 1) + min;
     }
 
     /** Inclusive. */
     public static float randomSeed(long seed, float min, float max){
-        seedr.setSeed(seed);
-        return (min + seedr.nextFloat() * (max - min));
+        seedr.get().setSeed(seed);
+        return (min + seedr.get().nextFloat() * (max - min));
     }
 
     public static float randomSeed(long seed){
-        seedr.setSeed(seed * 99999);
-        return seedr.nextFloat();
+        seedr.get().setSeed(seed * 99999);
+        return seedr.get().nextFloat();
     }
 
     public static float randomSeed(long seed, float max){
-        seedr.setSeed(seed * 99999);
-        return seedr.nextFloat() * max;
+        seedr.get().setSeed(seed * 99999);
+        return seedr.get().nextFloat() * max;
     }
 
     public static float randomSeedRange(long seed, float range){
-        seedr.setSeed(seed * 99999);
-        return range * (seedr.nextFloat() - 0.5f) * 2f;
+        seedr.get().setSeed(seed * 99999);
+        return range * (seedr.get().nextFloat() - 0.5f) * 2f;
     }
 
     /**
@@ -330,7 +351,7 @@ public final class Mathf{
      * This is an optimized version of {@link #randomTriangular(float, float, float) randomTriangular(-1, 1, 0)}
      */
     public static float randomTriangular(){
-        return rand.nextFloat() - rand.nextFloat();
+        return rand().nextFloat() - rand().nextFloat();
     }
 
     /**
@@ -341,7 +362,7 @@ public final class Mathf{
      * @param max the upper limit
      */
     public static float randomTriangular(float max){
-        return (rand.nextFloat() - rand.nextFloat()) * max;
+        return (rand().nextFloat() - rand().nextFloat()) * max;
     }
 
     /**
@@ -364,7 +385,7 @@ public final class Mathf{
      * @param mode the point around which the values are more likely
      */
     public static float randomTriangular(float min, float max, float mode){
-        float u = rand.nextFloat();
+        float u = rand().nextFloat();
         float d = max - min;
         if(u <= (mode - min) / d) return min + (float)Math.sqrt(u * d * (mode - min));
         return max - (float)Math.sqrt((1 - u) * d * (max - mode));
@@ -418,7 +439,7 @@ public final class Mathf{
 
     /** Approaches a value at linear speed. Multiplied by the delta. */
     public static float approachDelta(float from, float to, float speed){
-        return approach(from, to, Time.delta * speed);
+        return approach(from, to, Time.delta() * speed);
     }
 
     /** Linearly interpolates between fromValue to toValue on progress position. */
@@ -428,7 +449,7 @@ public final class Mathf{
 
     /** Linearly interpolates between fromValue to toValue on progress position. Multiplied by Time.delta().*/
     public static float lerpDelta(float fromValue, float toValue, float progress){
-        return lerp(fromValue, toValue, clamp(progress * Time.delta));
+        return lerp(fromValue, toValue, clamp(progress * Time.delta()));
     }
 
     /**
@@ -458,7 +479,7 @@ public final class Mathf{
     }
 
     public static float slerpDelta(float fromDegrees, float toDegrees, float progress){
-        return slerp(fromDegrees, toDegrees, clamp(progress * Time.delta));
+        return slerp(fromDegrees, toDegrees, clamp(progress * Time.delta()));
     }
 
     /**
@@ -670,10 +691,10 @@ public final class Mathf{
 
     //TODO kind of a mess
     public static Vec2 arrive(float x, float y, float destX, float destY, Vec2 curVel, float radius, float tolerance, float speed, float accel){
-        Vec2 toTarget = v1.set(destX, destY).sub(x, y);
+        Vec2 toTarget = vecScratch.get().v1.set(destX, destY).sub(x, y);
         float distance = toTarget.len();
 
-        if(distance <= tolerance) return v3.setZero();
+        if(distance <= tolerance) return vecScratch.get().v3.setZero();
         float targetSpeed = speed;
         if(distance <= radius) targetSpeed *= distance / radius;
 

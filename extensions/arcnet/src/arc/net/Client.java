@@ -30,6 +30,8 @@ public class Client extends Connection implements EndPoint{
     private int connectTimeout;
     private InetAddress connectHost;
     private int connectTcpPort;
+    /** Optional broker preface used by the last connection; retained for reconnect() symmetry. */
+    private byte[] connectPreConnectBytes;
     private int connectUdpPort;
     private boolean isClosed;
     private final ExecutorService discoverExecutor = Threads.unboundedExecutor("Server Discovery");
@@ -113,6 +115,15 @@ public class Client extends Connection implements EndPoint{
      * @throws IOException if the client could not be opened or connecting times out.
      */
     public void connect(int timeout, InetAddress host, int tcpPort, int udpPort) throws IOException{
+        connect(timeout, host, tcpPort, udpPort, null);
+    }
+
+    /**
+     * Opens a TCP/optional UDP client and writes an optional unframed TCP preface immediately after connect, before
+     * waiting for RegisterTCP. The preface is consumed by an outer connection broker and is never visible to the
+     * ArcNet server selected by that broker.
+     */
+    public void connect(int timeout, InetAddress host, int tcpPort, int udpPort, byte[] preConnectBytes) throws IOException{
         if(host == null)
             throw new IllegalArgumentException("host cannot be null.");
         if(Thread.currentThread() == getUpdateThread())
@@ -122,12 +133,15 @@ public class Client extends Connection implements EndPoint{
         this.connectHost = host;
         this.connectTcpPort = tcpPort;
         this.connectUdpPort = udpPort;
+        this.connectPreConnectBytes = preConnectBytes == null ? null : preConnectBytes.clone();
         close();
         id = -1;
         try{
             if(udpPort != -1)
                 udp = new UdpConnection(serialization,
                 tcp.readBuffer.capacity());
+            else
+                udp = null;
 
             long endTime;
             synchronized(updateLock){
@@ -135,7 +149,7 @@ public class Client extends Connection implements EndPoint{
                 selector.wakeup();
                 endTime = System.currentTimeMillis() + timeout;
                 tcp.connect(selector, new InetSocketAddress(host, tcpPort),
-                5000);
+                5000, preConnectBytes);
             }
 
             // Wait for RegisterTCP.
@@ -204,7 +218,89 @@ public class Client extends Connection implements EndPoint{
         if(connectHost == null)
             throw new IllegalStateException(
             "This client has never been connected.");
-        connect(timeout, connectHost, connectTcpPort, connectUdpPort);
+        connect(timeout, connectHost, connectTcpPort, connectUdpPort, connectPreConnectBytes);
+    }
+
+    /**
+     * Detaches the live TCP channel without closing it so a Shared Campaign hot-switch can re-bind the same
+     * client→entry connection to another Action world. Returns null when no channel is attached.
+     */
+    public SocketChannel detachTcpChannel(){
+        if(Thread.currentThread() == updateThread)
+            throw new IllegalStateException("Cannot detach on the connection's update thread.");
+
+        // Stop the current selector/update loop *without* calling close(), because close() would close the socket we
+        // are deliberately preserving. Waiting for the reader thread is essential: otherwise it can still consume
+        // the destination world's RegisterTCP after the broker has switched the relay, racing connectDetached().
+        Thread previous = updateThread;
+        shutdown = true;
+        selector.wakeup();
+        if(previous != null && previous.isAlive()){
+            try{
+                previous.join(5000);
+            }catch(InterruptedException interrupted){
+                Thread.currentThread().interrupt();
+                return null;
+            }
+            if(previous.isAlive()) return null;
+        }
+
+        SocketChannel channel;
+        synchronized(updateLock){
+            channel = tcp.detachSocketChannel();
+            tcpRegistered = false;
+            udpRegistered = false;
+            udp = null;
+            if(channel != null){
+                // The transport is intentionally preserved, but this Arc connection is no longer registered. Mark it
+                // disconnected silently so connectDetached() can reset protocol state without firing a spurious
+                // Disconnect event for the world that is being hot-switched away from.
+                setConnected(false);
+            }
+        }
+        return channel;
+    }
+
+    /**
+     * Re-binds a previously detached (still open) TCP channel and waits for RegisterTCP. TCP-only; used by
+     * Shared Campaign same-connection world switching. {@link #update} must run on another thread as with connect.
+     */
+    public void connectDetached(int timeout, SocketChannel channel) throws IOException{
+        if(channel == null)
+            throw new IllegalArgumentException("channel cannot be null.");
+        if(Thread.currentThread() == getUpdateThread())
+            throw new IllegalStateException("Cannot connect on the connection's update thread.");
+        this.connectTimeout = timeout;
+        this.connectHost = null;
+        this.connectTcpPort = channel.socket().getPort();
+        this.connectUdpPort = -1;
+        close();
+        isClosed = false;
+        id = -1;
+        try{
+            synchronized(updateLock){
+                tcpRegistered = false;
+                selector.wakeup();
+                SelectionKey key = tcp.accept(selector, channel);
+                if(key != null) key.attach(tcp);
+            }
+            long endTime = System.currentTimeMillis() + timeout;
+            synchronized(tcpRegistrationLock){
+                while(!tcpRegistered && System.currentTimeMillis() < endTime){
+                    try{
+                        tcpRegistrationLock.wait(100);
+                    }catch(InterruptedException ignored){
+                    }
+                }
+                if(!tcpRegistered)
+                    throw new SocketTimeoutException(
+                    "Rebind connected, but timed out during TCP registration.\n"
+                    + "Note: Client#update must be called in a separate thread during rebind.");
+            }
+        }catch(IOException ex){
+            close();
+            throw ex;
+        }
     }
 
     /**

@@ -18,7 +18,7 @@ public class Strings{
     public static final Charset ascii = Charset.forName("US-ASCII");
 
     private static final byte[] hexArray = "0123456789ABCDEF".getBytes(ascii);
-    private static StringBuilder tmp1 = new StringBuilder(), tmp2 = new StringBuilder();
+    private static final ThreadLocal<FixedScratch> fixedScratch = ThreadLocal.withInitial(FixedScratch::new);
     private static Pattern
         filenamePattern = Pattern.compile("[\0/\"<>|:*?\\\\]"),
         unsafeFilenamePattern = Pattern.compile("[\0/\"'<>|:*!?\\\\]"),
@@ -764,13 +764,14 @@ public class Strings{
         }
         boolean negative = d < 0;
         d = Math.abs(d);
-        StringBuilder dec = tmp2;
+        FixedScratch scratch = fixedScratch.get();
+        StringBuilder dec = scratch.dec;
         dec.setLength(0);
         dec.append((int)(float)(d * Math.pow(10, decimalPlaces) + 0.0001f));
 
         int len = dec.length();
         int decimalPosition = len - decimalPlaces;
-        StringBuilder result = tmp1;
+        StringBuilder result = scratch.result;
         result.setLength(0);
         if(negative) result.append('-');
         if(decimalPlaces == 0){
@@ -912,7 +913,6 @@ public class Strings{
         }
         return false;
     }
-
     public static byte[] deflate(String str){
         try{
             Deflater deflater = new Deflater();
@@ -946,5 +946,10 @@ public class Strings{
         }catch(Exception e){
             throw new RuntimeException(e);
         }
+    }
+
+    private static final class FixedScratch{
+        final StringBuilder result = new StringBuilder();
+        final StringBuilder dec = new StringBuilder();
     }
 }

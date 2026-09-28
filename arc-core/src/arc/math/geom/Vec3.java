@@ -12,7 +12,7 @@ public class Vec3 implements Vector<Vec3>{
     public final static Vec3 Y = new Vec3(0, 1, 0);
     public final static Vec3 Z = new Vec3(0, 0, 1);
     public final static Vec3 Zero = new Vec3(0, 0, 0);
-    private static final Mat tmpMat = new Mat();
+    private static final ThreadLocal<Mat> tmpMat = ThreadLocal.withInitial(Mat::new);
     /** the x-component of this vector **/
     public float x;
     /** the y-component of this vector **/
@@ -163,7 +163,7 @@ public class Vec3 implements Vector<Vec3>{
 
     @Override
     public Vec3 setToRandomDirection(){
-        return setToRandomDirection(Mathf.rand);
+        return setToRandomDirection(Mathf.rand());
     }
 
     public Vec3 setToRandomDirection(Rand rand){
@@ -435,8 +435,9 @@ public class Vec3 implements Vector<Vec3>{
      * @return This vector for chaining
      */
     public Vec3 rotate(final Vec3 axis, float degrees){
-        tmpMat.setToRotation(axis, degrees);
-        return this.mul(tmpMat);
+        Mat matrix = tmpMat.get();
+        matrix.setToRotation(axis, degrees);
+        return this.mul(matrix);
     }
 
     @Override

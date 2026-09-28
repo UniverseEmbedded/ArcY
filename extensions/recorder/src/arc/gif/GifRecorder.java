@@ -154,7 +154,7 @@ public class GifRecorder{
 
         //draw UI
         if(open){
-            Tmp.m1.set(Draw.proj());
+            Tmp.m1().set(Draw.proj());
             Draw.proj(0, 0, Core.graphics.getWidth(), Core.graphics.getHeight());
 
             Draw.color(
@@ -202,7 +202,7 @@ public class GifRecorder{
 
             Draw.color();
             Draw.flush();
-            Draw.proj(Tmp.m1);
+            Draw.proj(Tmp.m1());
         }
     }
 }

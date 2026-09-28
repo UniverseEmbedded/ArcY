@@ -8,7 +8,7 @@ import arc.math.geom.*;
 
 public class Camera{
     /** temporary vector which is returned. */
-    private static final Vec2 tmpVector = new Vec2();
+    private static final ThreadLocal<Vec2> tmpVector = ThreadLocal.withInitial(Vec2::new);
     /** the position of the camera **/
     public final Vec2 position = new Vec2();
     /** the view matrix**/
@@ -71,8 +71,9 @@ public class Camera{
 
     /** See {@link #unproject(Vec2)}. Returns the same Vec2 each time. */
     public Vec2 unproject(float screenX, float screenY){
-        unproject(tmpVector.set(screenX, screenY), 0, 0, Core.graphics.getWidth(), Core.graphics.getHeight());
-        return tmpVector;
+        Vec2 result = tmpVector.get().set(screenX, screenY);
+        unproject(result, 0, 0, Core.graphics.getWidth(), Core.graphics.getHeight());
+        return result;
     }
 
     /**
@@ -88,8 +89,9 @@ public class Camera{
 
     /** See {@link #project(Vec2)}. Returns the same Vec2 each time. */
     public Vec2 project(float screenX, float screenY){
-        project(tmpVector.set(screenX, screenY), 0, 0, Core.graphics.getWidth(), Core.graphics.getHeight());
-        return tmpVector;
+        Vec2 result = tmpVector.get().set(screenX, screenY);
+        project(result, 0, 0, Core.graphics.getWidth(), Core.graphics.getHeight());
+        return result;
     }
 
     /**

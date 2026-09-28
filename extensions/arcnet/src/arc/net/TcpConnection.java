@@ -32,29 +32,65 @@ public class TcpConnection{
     }
 
     public SelectionKey accept(Selector selector, SocketChannel socketChannel) throws IOException{
-        writeBuffer.clear();
-        readBuffer.clear();
-        readBuffer.flip();
-        currentObjectLength = 0;
-        try{
-            this.socketChannel = socketChannel;
-            socketChannel.configureBlocking(false);
-            Socket socket = socketChannel.socket();
-            socket.setTcpNoDelay(true);
+        return accept(selector, socketChannel, null);
+    }
 
-            selectionKey = socketChannel.register(selector,
-            SelectionKey.OP_READ);
+    /**
+     * Accepts an externally established channel. {@code preRead} seeds the object read buffer with bytes already
+     * consumed by a demultiplexer (e.g. Shared Campaign single-entry handshake sniffing) so the injected connection
+     * begins mid-stream without losing the first frame.
+     */
+    public SelectionKey accept(Selector selector, SocketChannel socketChannel, ByteBuffer preRead) throws IOException{
+        synchronized(writeLock){
+            writeBuffer.clear();
+            readBuffer.clear();
+            currentObjectLength = 0;
+            if(preRead != null && preRead.hasRemaining()){
+                if(preRead.remaining() > readBuffer.capacity())
+                    throw new ArcNetException("Unable to seed read buffer: pre-read bytes exceed object buffer capacity");
+                readBuffer.put(preRead);
+            }
+            readBuffer.flip();
+            try{
+                this.socketChannel = socketChannel;
+                socketChannel.configureBlocking(false);
+                Socket socket = socketChannel.socket();
+                socket.setTcpNoDelay(true);
 
-            lastReadTime = lastWriteTime = System.currentTimeMillis();
+                // A hot-switch may re-register the very same SocketChannel on this selector immediately after its
+                // previous key was cancelled by detachSocketChannel(). NIO only removes cancelled keys during a
+                // select cycle; attempting register() before that cycle throws CancelledKeyException. Process the
+                // cancellation synchronously because the old client update loop is deliberately stopped while the
+                // channel is detached.
+                SelectionKey previousKey = socketChannel.keyFor(selector);
+                if(previousKey != null){
+                    previousKey.cancel();
+                    selector.selectNow();
+                }
+                selectionKey = socketChannel.register(selector,
+                SelectionKey.OP_READ);
 
-            return selectionKey;
-        }catch(IOException ex){
-            close();
-            throw ex;
+                lastReadTime = lastWriteTime = System.currentTimeMillis();
+
+                return selectionKey;
+            }catch(IOException ex){
+                close();
+                throw ex;
+            }
         }
     }
 
     public void connect(Selector selector, SocketAddress remoteAddress, int timeout) throws IOException{
+        connect(selector, remoteAddress, timeout, null);
+    }
+
+    /**
+     * Opens a TCP connection and, when supplied, writes an unframed protocol preface before ArcNet begins reading
+     * framed objects. This is intentionally transport-generic: callers own the preface format and the remote endpoint
+     * must consume it before speaking ArcNet. The write happens while the channel is still blocking, so the complete
+     * preface is on the wire before the selector can observe server registration traffic.
+     */
+    public void connect(Selector selector, SocketAddress remoteAddress, int timeout, byte[] preConnectBytes) throws IOException{
         close();
         writeBuffer.clear();
         readBuffer.clear();
@@ -66,6 +102,10 @@ public class TcpConnection{
             socket.setTcpNoDelay(true);
             // socket.setTrafficClass(IPTOS_LOWDELAY);
             socket.connect(remoteAddress, timeout); // Connect using blocking mode for simplicity.
+            if(preConnectBytes != null && preConnectBytes.length > 0){
+                ByteBuffer preface = ByteBuffer.wrap(preConnectBytes);
+                while(preface.hasRemaining()) socketChannel.write(preface);
+            }
             socketChannel.configureBlocking(false);
             this.socketChannel = socketChannel;
 
@@ -76,6 +116,28 @@ public class TcpConnection{
         }catch(IOException ex){
             close();
             throw new IOException("Unable to connect to: " + remoteAddress, ex);
+        }
+    }
+
+    /**
+     * Detaches the live TCP channel without closing it. Used by Shared Campaign hot-switch so the same
+     * client→entry TCP can be re-bound to another Action world after Arc-level state is reset.
+     * @return the still-open channel, or null when no channel is attached.
+     */
+    public SocketChannel detachSocketChannel(){
+        synchronized(writeLock){
+            SelectionKey key = selectionKey;
+            if(key != null){
+                key.cancel();
+                selectionKey = null;
+            }
+            SocketChannel channel = socketChannel;
+            socketChannel = null;
+            writeBuffer.clear();
+            readBuffer.clear();
+            readBuffer.flip();
+            currentObjectLength = 0;
+            return channel;
         }
     }
 

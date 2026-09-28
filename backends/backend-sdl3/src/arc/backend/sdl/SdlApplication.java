@@ -88,7 +88,7 @@ public class SdlApplication implements Application{
                 }
 
                 if(lastFocus != null){
-                    Vec2 pos = lastFocus.localToStageCoordinates(Tmp.v1.setZero());
+                    Vec2 pos = lastFocus.localToStageCoordinates(Tmp.v1().setZero());
                     try(MemoryStack stack = MemoryStack.stackPush()){
                         SDL_Rect rect = SDL_Rect.malloc(stack)
                         .set((int)pos.x,

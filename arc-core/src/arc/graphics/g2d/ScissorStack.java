@@ -78,7 +78,7 @@ public class ScissorStack{
     }
 
     public static boolean pushWorld(Rect scissorWorld){
-        calculateScissors(Core.camera, Tmp.m1.idt(), Tmp.r1.set(scissorWorld), scissorWorld);
+        calculateScissors(Core.camera, Tmp.m1().idt(), Tmp.r1().set(scissorWorld), scissorWorld);
         return push(scissorWorld);
     }
 

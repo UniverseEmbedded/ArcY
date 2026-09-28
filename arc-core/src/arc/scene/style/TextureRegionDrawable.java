@@ -40,13 +40,13 @@ public class TextureRegionDrawable extends BaseDrawable implements TransformDraw
 
     @Override
     public void draw(float x, float y, float width, float height){
-        Draw.color(Tmp.c1.set(tint).mul(Draw.getColor()).toFloatBits());
+        Draw.color(Tmp.c1().set(tint).mul(Draw.getColor()).toFloatBits());
         Draw.rect(region, x + width/2f, y + height/2f, width, height);
     }
 
     @Override
     public void draw(float x, float y, float originX, float originY, float width, float height, float scaleX, float scaleY, float rotation){
-        Draw.color(Tmp.c1.set(tint).mul(Draw.getColor()).toFloatBits());
+        Draw.color(Tmp.c1().set(tint).mul(Draw.getColor()).toFloatBits());
         Draw.rect(region, x + width/2f, y + height/2f, width * scaleX, height * scaleY, originX, originY, rotation);
     }
 
@@ -67,7 +67,7 @@ public class TextureRegionDrawable extends BaseDrawable implements TransformDraw
 
     /** Creates a new drawable that renders the same as this drawable tinted the specified color. */
     public Drawable tint(float r, float g, float b, float a){
-        return tint(Tmp.c1.set(r, g, b, a));
+        return tint(Tmp.c1().set(r, g, b, a));
     }
 
     /** Creates a new drawable that renders the same as this drawable tinted the specified color. */

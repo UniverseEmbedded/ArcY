@@ -182,7 +182,7 @@ public class Draw{
     }
 
     public static void mixcol(Color a, Color b, float prog){
-        Core.batch.setPackedMixColor(Tmp.c1.set(a).lerp(b, prog).toFloatBits());
+        Core.batch.setPackedMixColor(Tmp.c1().set(a).lerp(b, prog).toFloatBits());
     }
 
     public static void mixcol(){
@@ -194,9 +194,9 @@ public class Draw{
     }
 
     public static void tint(Color a, Color b, float s){
-        Tmp.c1.set(a).lerp(b, s);
-        Tmp.c1.a = getColorAlpha();
-        color(Tmp.c1);
+        Tmp.c1().set(a).lerp(b, s);
+        Tmp.c1().a = getColorAlpha();
+        color(Tmp.c1());
     }
 
     public static void tint(Color color){
@@ -216,7 +216,7 @@ public class Draw{
     }
 
     public static void color(int color){
-        Core.batch.setPackedColor(Tmp.c1.rgba8888(color).toFloatBits());
+        Core.batch.setPackedColor(Tmp.c1().rgba8888(color).toFloatBits());
     }
 
     public static void color(float color){
@@ -227,12 +227,12 @@ public class Draw{
         carr[0] = a;
         carr[1] = b;
         carr[2] = c;
-        color(Tmp.c1.lerp(carr, progress));
+        color(Tmp.c1().lerp(carr, progress));
     }
 
     /** Automatically mixes colors. */
     public static void color(Color a, Color b, float s){
-        Core.batch.setPackedColor(Tmp.c1.set(a).lerp(b, s).toFloatBits());
+        Core.batch.setPackedColor(Tmp.c1().set(a).lerp(b, s).toFloatBits());
     }
 
     public static void color(){
@@ -302,10 +302,10 @@ public class Draw{
         u2 = (x + camera.width / 2f) / ww,
         v2 = (y + camera.height / 2f) / wh;
 
-        Tmp.tr1.set(texture);
-        Tmp.tr1.set(u, v2, u2, v);
+        Tmp.tr1().set(texture);
+        Tmp.tr1().set(u, v2, u2, v);
 
-        Draw.rect(Tmp.tr1, camera.position.x, camera.position.y, camera.width, camera.height);
+        Draw.rect(Tmp.tr1(), camera.position.x, camera.position.y, camera.width, camera.height);
     }
 
     /** On a sorting or queued batch implementation, this treats everything inside the runnable as one unit.
@@ -461,8 +461,8 @@ public class Draw{
     }
 
     public static TextureRegion wrap(Texture texture){
-        Tmp.tr2.set(texture);
-        return Tmp.tr2;
+        Tmp.tr2().set(texture);
+        return Tmp.tr2();
     }
 
     public static void rectv(TextureRegion region, float x, float y, float width, float height, Cons<Vec2> tweaker){
@@ -498,21 +498,21 @@ public class Draw{
         float x4 = x1 + (x3 - x2);
         float y4 = y3 - (y2 - y1);
 
-        tweaker.get(Tmp.v1.set(x1, y1));
-        x1 = Tmp.v1.x;
-        y1 = Tmp.v1.y;
+        tweaker.get(Tmp.v1().set(x1, y1));
+        x1 = Tmp.v1().x;
+        y1 = Tmp.v1().y;
 
-        tweaker.get(Tmp.v1.set(x2, y2));
-        x2 = Tmp.v1.x;
-        y2 = Tmp.v1.y;
+        tweaker.get(Tmp.v1().set(x2, y2));
+        x2 = Tmp.v1().x;
+        y2 = Tmp.v1().y;
 
-        tweaker.get(Tmp.v1.set(x3, y3));
-        x3 = Tmp.v1.x;
-        y3 = Tmp.v1.y;
+        tweaker.get(Tmp.v1().set(x3, y3));
+        x3 = Tmp.v1().x;
+        y3 = Tmp.v1().y;
 
-        tweaker.get(Tmp.v1.set(x4, y4));
-        x4 = Tmp.v1.x;
-        y4 = Tmp.v1.y;
+        tweaker.get(Tmp.v1().set(x4, y4));
+        x4 = Tmp.v1().x;
+        y4 = Tmp.v1().y;
 
         final float u = region.u;
         final float v = region.v2;

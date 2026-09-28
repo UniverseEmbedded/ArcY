@@ -40,6 +40,8 @@ public class Server implements EndPoint{
 
     private final ByteBuffer bulkWriteBuffer;
     private final Object bulkWriteLock = new Object();
+    /** Externally accepted channels waiting to be registered on the next update tick (single-entry demux). */
+    private final ConcurrentLinkedQueue<PendingExternalConnection> pendingExternalConnections = new ConcurrentLinkedQueue<>();
 
     private NetListener dispatchListener = new NetListener(){
         @Override
@@ -191,6 +193,7 @@ public class Server implements EndPoint{
             // selector is used to bind the server
             // connection.
         }
+        drainPendingExternalConnections();
         long startTime = System.currentTimeMillis();
         int select;
         if(timeout > 0){
@@ -198,6 +201,8 @@ public class Server implements EndPoint{
         }else{
             select = selector.selectNow();
         }
+        // A concurrent injectExternalConnection may have queued work while select was blocking.
+        drainPendingExternalConnections();
         if(select == 0){
             emptySelects++;
             if(emptySelects == 100){
@@ -223,17 +228,25 @@ public class Server implements EndPoint{
                         int ops = selectionKey.readyOps();
 
                         if(fromConnection != null){ // Must be a TCP read or
-                            // write operation.
-                            if(udp != null && fromConnection.udpRemoteAddress == null){
-                                fromConnection.close(DcReason.error);
-                                continue;
-                            }
+                            // write operation. Connections accepted while UDP is enabled normally remain pending until
+                            // RegisterUDP arrives. A deliberately TCP-only client, however, considers RegisterTCP enough
+                            // and immediately sends its first application packet. Promote that pending connection at the
+                            // moment such a TCP packet arrives. This lets ordinary TCP+UDP clients and broker-relayed
+                            // TCP-only clients coexist on one listener without a separate relay port or wire marker.
+                            boolean awaitingUdp = fromConnection.udp != null && fromConnection.udpRemoteAddress == null;
                             if((ops & SelectionKey.OP_READ) == SelectionKey.OP_READ){
                                 try{
                                     while(true){
                                         Object object = fromConnection.tcp.readObject();
                                         if(object == null)
                                             break;
+                                        if(awaitingUdp){
+                                            if(!promotePendingTcpOnly(fromConnection)){
+                                                fromConnection.close(DcReason.error);
+                                                break;
+                                            }
+                                            awaitingUdp = false;
+                                        }
                                         fromConnection.notifyReceived(object);
                                     }
                                 }catch(IOException | ArcNetException ex){
@@ -369,7 +382,46 @@ public class Server implements EndPoint{
         close();
     }
 
+    /**
+     * Registers an externally accepted TCP channel as a normal server connection. Used by single-entry demultiplexers
+     * that already own the public listener and must hand a live socket (plus any bytes already read) to this world
+     * without opening a second local hop.
+     *
+     * @param preRead Optional bytes already consumed from the channel; may be null.
+     */
+    public void injectExternalConnection(SocketChannel socketChannel, ByteBuffer preRead){
+        if(socketChannel == null) throw new IllegalArgumentException("socketChannel cannot be null.");
+        if(shutdown){
+            try{ socketChannel.close(); }catch(IOException ignored){}
+            return;
+        }
+        pendingExternalConnections.add(new PendingExternalConnection(socketChannel, preRead == null ? null : preRead.slice()));
+        selector.wakeup();
+    }
+
+    private void drainPendingExternalConnections(){
+        PendingExternalConnection pending;
+        while((pending = pendingExternalConnections.poll()) != null){
+            try{
+                acceptOperation(pending.socketChannel, pending.preRead);
+            }catch(Throwable ex){
+                ArcNet.handleError(ex instanceof ArcNetException ? (ArcNetException)ex : new ArcNetException("Injected external connection failed", ex));
+                try{ pending.socketChannel.close(); }catch(IOException ignored){}
+            }
+        }
+    }
+
     private void acceptOperation(SocketChannel socketChannel){
+        acceptOperation(socketChannel, null, false);
+    }
+
+    private void acceptOperation(SocketChannel socketChannel, ByteBuffer preRead){
+        // External injection provides only a TCP channel. It must not be forced through the UDP registration
+        // handshake even when this Server also accepts ordinary TCP+UDP clients on its bound port.
+        acceptOperation(socketChannel, preRead, true);
+    }
+
+    private void acceptOperation(SocketChannel socketChannel, ByteBuffer preRead, boolean tcpOnly){
         if(connectFilter != null){
             try{
                 if(!connectFilter.accept(((InetSocketAddress)socketChannel.getRemoteAddress()).getAddress().getHostAddress())){
@@ -384,10 +436,10 @@ public class Server implements EndPoint{
         writeBufferSize, objectBufferSize);
         connection.endPoint = this;
         UdpConnection udp = this.udp;
-        if(udp != null)
+        if(udp != null && !tcpOnly)
             connection.udp = udp;
         try{
-            SelectionKey selectionKey = connection.tcp.accept(selector, socketChannel);
+            SelectionKey selectionKey = connection.tcp.accept(selector, socketChannel, preRead);
             selectionKey.attach(connection);
 
             int id = generateId();
@@ -395,7 +447,7 @@ public class Server implements EndPoint{
             connection.setConnected(true);
             connection.addListener(dispatchListener);
 
-            if(udp == null)
+            if(udp == null || tcpOnly)
                 addConnection(connection);
             else
                 pendingConnections.put(id, connection);
@@ -404,11 +456,27 @@ public class Server implements EndPoint{
             registerConnection.connectionID = id;
             connection.sendTCP(registerConnection);
 
-            if(udp == null)
+            if(udp == null || tcpOnly)
                 connection.notifyConnected();
         }catch(IOException ex){
             connection.close(DcReason.error);
         }
+    }
+
+    /**
+     * Completes a pending TCP+UDP accept as an intentional TCP-only connection when the peer sends application data
+     * before registering UDP. Stock ArcNet clients never do this: they only notify their application after the UDP
+     * registration reply. Shared-entry relays are intentionally TCP-only and therefore send their ConnectPacket as soon
+     * as RegisterTCP arrives. This distinction is local to the ArcNet handshake and does not weaken UDP clients.
+     */
+    private boolean promotePendingTcpOnly(Connection connection){
+        if(connection == null || connection.udp == null || connection.udpRemoteAddress != null) return false;
+        if(pendingConnections.get(connection.id) != connection) return false;
+        pendingConnections.remove(connection.id);
+        connection.udp = null;
+        addConnection(connection);
+        connection.notifyConnected();
+        return true;
     }
 
     private int generateId(){
@@ -724,6 +792,16 @@ public class Server implements EndPoint{
      */
     public Connection[] getConnections(){
         return connections;
+    }
+
+    private static final class PendingExternalConnection{
+        final SocketChannel socketChannel;
+        final ByteBuffer preRead;
+
+        PendingExternalConnection(SocketChannel socketChannel, ByteBuffer preRead){
+            this.socketChannel = socketChannel;
+            this.preRead = preRead;
+        }
     }
 
     class DiscoveryReceiver{

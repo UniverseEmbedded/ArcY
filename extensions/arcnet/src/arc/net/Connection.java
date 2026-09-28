@@ -316,7 +316,7 @@ public class Connection{
      * or null if this connection is not connected.
      */
     public InetSocketAddress getRemoteAddressUDP(){
-        return udp.connectedAddress != null ? udp.connectedAddress : udpRemoteAddress;
+        return udp != null && udp.connectedAddress != null ? udp.connectedAddress : udpRemoteAddress;
     }
 
     /**

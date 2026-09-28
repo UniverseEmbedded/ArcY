@@ -46,53 +46,54 @@ public enum Scaling{
     /** The source is not scaled. */
     none;
 
-    private static final Vec2 temp = new Vec2();
+    private static final ThreadLocal<Vec2> temp = ThreadLocal.withInitial(Vec2::new);
 
     /**
      * Returns the size of the source scaled to the target. Note the same Vec2 instance is always returned and should never be
      * cached.
      */
     public Vec2 apply(float sourceWidth, float sourceHeight, float targetWidth, float targetHeight){
+        Vec2 result = temp.get();
         switch(this){
             case fit:{
                 float targetRatio = targetHeight / targetWidth;
                 float sourceRatio = sourceHeight / sourceWidth;
                 float scale = targetRatio > sourceRatio ? targetWidth / sourceWidth : targetHeight / sourceHeight;
-                temp.x = sourceWidth * scale;
-                temp.y = sourceHeight * scale;
+                result.x = sourceWidth * scale;
+                result.y = sourceHeight * scale;
                 break;
             }
             case fill:{
                 float targetRatio = targetHeight / targetWidth;
                 float sourceRatio = sourceHeight / sourceWidth;
                 float scale = targetRatio < sourceRatio ? targetWidth / sourceWidth : targetHeight / sourceHeight;
-                temp.x = sourceWidth * scale;
-                temp.y = sourceHeight * scale;
+                result.x = sourceWidth * scale;
+                result.y = sourceHeight * scale;
                 break;
             }
             case fillX:{
                 float scale = targetWidth / sourceWidth;
-                temp.x = sourceWidth * scale;
-                temp.y = sourceHeight * scale;
+                result.x = sourceWidth * scale;
+                result.y = sourceHeight * scale;
                 break;
             }
             case fillY:{
                 float scale = targetHeight / sourceHeight;
-                temp.x = sourceWidth * scale;
-                temp.y = sourceHeight * scale;
+                result.x = sourceWidth * scale;
+                result.y = sourceHeight * scale;
                 break;
             }
             case stretch:
-                temp.x = targetWidth;
-                temp.y = targetHeight;
+                result.x = targetWidth;
+                result.y = targetHeight;
                 break;
             case stretchX:
-                temp.x = targetWidth;
-                temp.y = sourceHeight;
+                result.x = targetWidth;
+                result.y = sourceHeight;
                 break;
             case stretchY:
-                temp.x = sourceWidth;
-                temp.y = targetHeight;
+                result.x = sourceWidth;
+                result.y = targetHeight;
                 break;
             case bounded:
                 if(sourceHeight > targetHeight || sourceWidth > targetWidth){
@@ -101,10 +102,10 @@ public enum Scaling{
                     return none.apply(sourceWidth, sourceHeight, targetWidth, targetHeight);
                 }
             case none:
-                temp.x = sourceWidth;
-                temp.y = sourceHeight;
+                result.x = sourceWidth;
+                result.y = sourceHeight;
                 break;
         }
-        return temp;
+        return result;
     }
 }

@@ -85,7 +85,7 @@ public class SdlApplication implements Application{
                 }
 
                 if(lastFocus != null){
-                    Vec2 pos = lastFocus.localToStageCoordinates(Tmp.v1.setZero());
+                    Vec2 pos = lastFocus.localToStageCoordinates(Tmp.v1().setZero());
                     SDL_SetTextInputRect((int)pos.x, Core.graphics.getHeight() - 1 - (int)(pos.y + lastFocus.getHeight()), (int)lastFocus.getWidth(), (int)lastFocus.getHeight());
                 }
             }

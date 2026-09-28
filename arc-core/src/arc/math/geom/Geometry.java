@@ -38,7 +38,15 @@ public final class Geometry{
         new Point2(-1, -1),
         new Point2(1, -1)
     };
-    private static final Vec2 tmp1 = new Vec2(), tmp2 = new Vec2(), tmp3 = new Vec2();
+    private static final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
+
+    private static final class Scratch{
+        final Vec2 tmp1 = new Vec2(), tmp2 = new Vec2(), tmp3 = new Vec2();
+    }
+
+    private static Vec2 tmp1(){ return scratch.get().tmp1; }
+    private static Vec2 tmp2(){ return scratch.get().tmp2; }
+    private static Vec2 tmp3(){ return scratch.get().tmp3; }
 
     public static Point2 d4(int i){
         return d4[Mathf.mod(i, 4)];
@@ -225,12 +233,12 @@ public final class Geometry{
         float step = 1f / steps;
 
         float offset = len;
-        tmp2.set(x2, y2);
+        tmp2().set(x2, y2);
         for(int i = 0; i < steps; i++){
             float s = step * i;
-            tmp1.set(x1, y1);
-            tmp1.lerp(tmp2, s);
-            pos.get(tmp1.x, tmp1.y);
+            tmp1().set(x1, y1);
+            tmp1().lerp(tmp2(), s);
+            pos.get(tmp1().x, tmp1().y);
             offset -= step;
         }
 
@@ -310,7 +318,7 @@ public final class Geometry{
     public static Vec2 raycastRect(float startx, float starty, float endx, float endy, float x, float y, float halfx, float halfy){
         float deltax = endx - startx, deltay = endy - starty;
 
-        Vec2 hit = tmp1;
+        Vec2 hit = tmp1();
 
 
         float scaleX = 1.0f / deltax;
@@ -372,13 +380,13 @@ public final class Geometry{
                 // Find out which axis is the axis of least penetration
                 if(Math.abs(xoverlap) < Math.abs(yoverlap)){
                     // Point towards B knowing that n points from A to B
-                    tmp1.x = nx < 0 ? 1 : -1;
-                    tmp1.y = 0;
+                    tmp1().x = nx < 0 ? 1 : -1;
+                    tmp1().y = 0;
                     penetration = xoverlap;
                 }else{
                     // Point towards B knowing that n points from A to B
-                    tmp1.x = 0;
-                    tmp1.y = ny < 0 ? 1 : -1;
+                    tmp1().x = 0;
+                    tmp1().y = ny < 0 ? 1 : -1;
                     penetration = yoverlap;
                 }
             }
@@ -387,13 +395,13 @@ public final class Geometry{
         float m = Math.max(penetration, 0.0f);
 
         // Apply correctional impulse
-        float cx = m * tmp1.x,
-        cy = m * tmp1.y;
+        float cx = m * tmp1().x,
+        cy = m * tmp1().y;
 
-        tmp1.x = -cx;
-        tmp1.y = -cy;
+        tmp1().x = -cx;
+        tmp1().y = -cy;
 
-        return tmp1;
+        return tmp1();
     }
 
     /**
@@ -412,9 +420,9 @@ public final class Geometry{
      * @return barycentricOut
      */
     public static Vec2 toBarycoord(Vec2 p, Vec2 a, Vec2 b, Vec2 c, Vec2 barycentricOut){
-        Vec2 v0 = tmp1.set(b).sub(a);
-        Vec2 v1 = tmp2.set(c).sub(a);
-        Vec2 v2 = tmp3.set(p).sub(a);
+        Vec2 v0 = tmp1().set(b).sub(a);
+        Vec2 v1 = tmp2().set(c).sub(a);
+        Vec2 v2 = tmp3().set(p).sub(a);
         float d00 = v0.dot(v0);
         float d01 = v0.dot(v1);
         float d11 = v1.dot(v1);

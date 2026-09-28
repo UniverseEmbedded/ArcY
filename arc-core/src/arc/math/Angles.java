@@ -5,8 +5,12 @@ import arc.func.*;
 import arc.math.geom.*;
 
 public class Angles{
-    private static final Rand rand = new Rand();
-    private static final Vec2 rv = new Vec2();
+    private static final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
+
+    private static class Scratch{
+        final Rand rand = new Rand();
+        final Vec2 rv = new Vec2();
+    }
 
     public static float forwardDistance(float angle1, float angle2){
         return Math.abs(angle1 - angle2);
@@ -72,11 +76,11 @@ public class Angles{
     }
 
     public static float trnsx(float angle, float x, float y){
-        return rv.set(x, y).rotate(angle).x;
+        return x * Mathf.cosDeg(angle) - y * Mathf.sinDeg(angle);
     }
 
     public static float trnsy(float angle, float x, float y){
-        return rv.set(x, y).rotate(angle).y;
+        return x * Mathf.sinDeg(angle) + y * Mathf.cosDeg(angle);
     }
 
     public static float mouseAngle(float cx, float cy){
@@ -99,59 +103,59 @@ public class Angles{
     }
 
     public static void randVectors(long seed, int amount, float length, Floatc2 cons){
-        rand.setSeed(seed);
+        scratch.get().rand.setSeed(seed);
         for(int i = 0; i < amount; i++){
-            rv.trns(rand.random(360f), length);
-            cons.get(rv.x, rv.y);
+            scratch.get().rv.trns(scratch.get().rand.random(360f), length);
+            cons.get(scratch.get().rv.x, scratch.get().rv.y);
         }
     }
 
     public static void randLenVectors(long seed, int amount, float length, Floatc2 cons){
-        rand.setSeed(seed);
+        scratch.get().rand.setSeed(seed);
         for(int i = 0; i < amount; i++){
-            rv.trns(rand.random(360f), rand.random(length));
-            cons.get(rv.x, rv.y);
+            scratch.get().rv.trns(scratch.get().rand.random(360f), scratch.get().rand.random(length));
+            cons.get(scratch.get().rv.x, scratch.get().rv.y);
         }
     }
 
     public static void randLenVectors(long seed, int amount, float minLength, float length, Floatc2 cons){
-        rand.setSeed(seed);
+        scratch.get().rand.setSeed(seed);
         for(int i = 0; i < amount; i++){
-            rv.trns(rand.random(360f), minLength + rand.random(length));
-            cons.get(rv.x, rv.y);
+            scratch.get().rv.trns(scratch.get().rand.random(360f), minLength + scratch.get().rand.random(length));
+            cons.get(scratch.get().rv.x, scratch.get().rv.y);
         }
     }
 
     public static void randLenVectors(long seed, int amount, float length, float angle, float range, Floatc2 cons){
-        rand.setSeed(seed);
+        scratch.get().rand.setSeed(seed);
         for(int i = 0; i < amount; i++){
-            rv.trns(angle + rand.range(range), rand.random(length));
-            cons.get(rv.x, rv.y);
+            scratch.get().rv.trns(angle + scratch.get().rand.range(range), scratch.get().rand.random(length));
+            cons.get(scratch.get().rv.x, scratch.get().rv.y);
         }
     }
 
     public static void randLenVectors(long seed, int amount, float length, float angle, float range, float spread, Floatc2 cons){
-        rand.setSeed(seed);
+        scratch.get().rand.setSeed(seed);
         for(int i = 0; i < amount; i++){
-            rv.trns(angle + rand.range(range), rand.random(length));
-            cons.get(rv.x + rand.range(spread), rv.y + rand.range(spread));
+            scratch.get().rv.trns(angle + scratch.get().rand.range(range), scratch.get().rand.random(length));
+            cons.get(scratch.get().rv.x + scratch.get().rand.range(spread), scratch.get().rv.y + scratch.get().rand.range(spread));
         }
     }
 
     public static void randLenVectors(long seed, float fin, int amount, float length, ParticleConsumer cons){
-        rand.setSeed(seed);
+        scratch.get().rand.setSeed(seed);
         for(int i = 0; i < amount; i++){
-            float l = rand.nextFloat();
-            rv.trns(rand.random(360f), length * l * fin);
-            cons.accept(rv.x, rv.y, fin * l, (1f - fin) * l);
+            float l = scratch.get().rand.nextFloat();
+            scratch.get().rv.trns(scratch.get().rand.random(360f), length * l * fin);
+            cons.accept(scratch.get().rv.x, scratch.get().rv.y, fin * l, (1f - fin) * l);
         }
     }
 
     public static void randLenVectors(long seed, float fin, int amount, float length, float angle, float range, ParticleConsumer cons){
-        rand.setSeed(seed);
+        scratch.get().rand.setSeed(seed);
         for(int i = 0; i < amount; i++){
-            rv.trns(angle + rand.range(range), rand.random(length * fin));
-            cons.accept(rv.x, rv.y, fin * (rand.nextFloat()), 0f);
+            scratch.get().rv.trns(angle + scratch.get().rand.range(range), scratch.get().rand.random(length * fin));
+            cons.accept(scratch.get().rv.x, scratch.get().rv.y, fin * (scratch.get().rand.nextFloat()), 0f);
         }
     }
 

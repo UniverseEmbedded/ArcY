@@ -405,7 +405,7 @@ public class IntSeq{
     }
 
     public void shuffle(){
-       shuffle(Mathf.rand);
+       shuffle(Mathf.rand());
     }
 
     public void shuffle(Rand rand){

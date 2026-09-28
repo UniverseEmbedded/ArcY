@@ -62,19 +62,19 @@ public class TiledDrawable extends TextureRegionDrawable{
             float v = region.v;
             y = startY;
             for(int ii = 0; ii < fullY; ii++){
-                Tmp.tr1.set(texture);
-                Tmp.tr1.set(u, v2, u2, v);
+                Tmp.tr1().set(texture);
+                Tmp.tr1().set(u, v2, u2, v);
 
-                Draw.rect(Tmp.tr1, x + remainingX/2f, y + remainingY/2f, remainingX, remainingY);
+                Draw.rect(Tmp.tr1(), x + remainingX/2f, y + remainingY/2f, remainingX, remainingY);
                 y += regionHeight;
             }
             // Upper right corner.
             if(remainingY > 0){
                 v = v2 - remainingY / texture.height;
-                Tmp.tr1.set(texture);
-                Tmp.tr1.set(u, v2, u2, v);
+                Tmp.tr1().set(texture);
+                Tmp.tr1().set(u, v2, u2, v);
 
-                Draw.rect(Tmp.tr1, x + remainingX/2f, y + remainingY/2f, remainingX, remainingY);
+                Draw.rect(Tmp.tr1(), x + remainingX/2f, y + remainingY/2f, remainingX, remainingY);
             }
         }
         if(remainingY > 0){
@@ -84,10 +84,10 @@ public class TiledDrawable extends TextureRegionDrawable{
             x = startX;
             for(int i = 0; i < fullX; i++){
 
-                Tmp.tr1.set(texture);
-                Tmp.tr1.set(u, v2, u2, v);
+                Tmp.tr1().set(texture);
+                Tmp.tr1().set(u, v2, u2, v);
 
-                Draw.rect(Tmp.tr1, x + remainingX/2f, y + remainingY/2f, remainingX, remainingY);
+                Draw.rect(Tmp.tr1(), x + remainingX/2f, y + remainingY/2f, remainingX, remainingY);
                 x += regionWidth;
             }
         }

@@ -2,34 +2,42 @@ package arc.util;
 
 import arc.struct.*;
 
+/** Lightweight per-thread benchmark accumulator; safe for concurrent runtime workers. */
 public class Bench{
-    private static long totalStart;
-    private static String lastName;
-    private static ObjectMap<String, Long> times = new ObjectMap<>();
-    private static long last;
+    private static final ThreadLocal<State> state = ThreadLocal.withInitial(State::new);
 
     public static void begin(String name){
-        if(lastName != null){
-            endi();
+        State value = state.get();
+        if(value.lastName != null){
+            endi(value);
         }else{
-            totalStart = Time.millis();
+            value.totalStart = Time.millis();
         }
-        last = Time.millis();
-        lastName = name;
+        value.last = Time.millis();
+        value.lastName = name;
     }
 
     public static void end(){
-        endi();
-        long total = Time.timeSinceMillis(totalStart);
+        State value = state.get();
+        endi(value);
+        long total = Time.timeSinceMillis(value.totalStart);
 
-        times.each((name, time) -> {
+        value.times.each((name, time) -> {
             Log.info("[PERF] @: @ms (@%)", name, time, (int)((float)time / total * 100));
         });
         Log.info("[PERF] TOTAL: @ms", total);
+        value.times.clear();
     }
 
-    private static void endi(){
-        times.put(lastName, Time.timeSinceMillis(last));
-        lastName = null;
+    private static void endi(State value){
+        if(value.lastName == null) return;
+        value.times.put(value.lastName, Time.timeSinceMillis(value.last));
+        value.lastName = null;
+    }
+
+    private static final class State{
+        long totalStart, last;
+        String lastName;
+        final ObjectMap<String, Long> times = new ObjectMap<>();
     }
 }

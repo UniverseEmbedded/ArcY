@@ -10,69 +10,78 @@ import arc.struct.*;
  * @author Nathan Sweet
  */
 public final class Intersector{
-    private static final Vec3 v0 = new Vec3();
-    private static final Vec3 v1 = new Vec3();
-    private static final Vec3 v2 = new Vec3();
-    private static final FloatSeq floatArray = new FloatSeq();
-    private static final FloatSeq floatArray2 = new FloatSeq();
-    private static final Vec2 ip = new Vec2();
-    private static final Vec2 ep1 = new Vec2();
-    private static final Vec2 ep2 = new Vec2();
-    private static final Vec2 s = new Vec2();
-    private static final Vec2 e = new Vec2();
-    static Vec3 tmp = new Vec3();
-    static Vec3 tmp1 = new Vec3();
-    static Vec3 tmp2 = new Vec3();
-    static Vec3 tmp3 = new Vec3();
-    static Vec2 v2tmp = new Vec2();
+    private static final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
+
+    private static final class Scratch{
+        final Vec3 v0 = new Vec3(), v1 = new Vec3(), v2 = new Vec3();
+        final FloatSeq floatArray = new FloatSeq(), floatArray2 = new FloatSeq();
+        final Vec2 ip = new Vec2(), ep1 = new Vec2(), ep2 = new Vec2(), s = new Vec2(), e = new Vec2(), v2tmp = new Vec2();
+        final Vec3 tmp = new Vec3(), tmp1 = new Vec3(), tmp2 = new Vec3(), tmp3 = new Vec3();
+    }
+
+    private static Vec3 v0(){ return scratch.get().v0; }
+    private static Vec3 v1(){ return scratch.get().v1; }
+    private static Vec3 v2(){ return scratch.get().v2; }
+    private static FloatSeq floatArray(){ return scratch.get().floatArray; }
+    private static FloatSeq floatArray2(){ return scratch.get().floatArray2; }
+    private static Vec2 ip(){ return scratch.get().ip; }
+    private static Vec2 ep1(){ return scratch.get().ep1; }
+    private static Vec2 ep2(){ return scratch.get().ep2; }
+    private static Vec2 s(){ return scratch.get().s; }
+    private static Vec2 e(){ return scratch.get().e; }
+    private static Vec3 tmp(){ return scratch.get().tmp; }
+    private static Vec3 tmp1(){ return scratch.get().tmp1; }
+    private static Vec3 tmp2(){ return scratch.get().tmp2; }
+    private static Vec3 tmp3(){ return scratch.get().tmp3; }
+    private static Vec2 v2tmp(){ return scratch.get().v2tmp; }
 
     public static boolean intersectPolygons(float[] p1, float[] p2){
         // reusable points to trace edges around polygon
-        floatArray2.clear();
-        floatArray.clear();
-        floatArray2.addAll(p1);
+        floatArray2().clear();
+        floatArray().clear();
+        floatArray2().addAll(p1);
         if(p1.length == 0 || p2.length == 0){
             return false;
         }
         for(int i = 0; i < p2.length; i += 2){
-            ep1.set(p2[i], p2[i + 1]);
+            ep1().set(p2[i], p2[i + 1]);
             // wrap around to beginning of array if index points to end;
             if(i < p2.length - 2){
-                ep2.set(p2[i + 2], p2[i + 3]);
+                ep2().set(p2[i + 2], p2[i + 3]);
             }else{
-                ep2.set(p2[0], p2[1]);
+                ep2().set(p2[0], p2[1]);
             }
-            if(floatArray2.size == 0){
+            if(floatArray2().size == 0){
                 return false;
             }
-            s.set(floatArray2.get(floatArray2.size - 2), floatArray2.get(floatArray2.size - 1));
-            for(int j = 0; j < floatArray2.size; j += 2){
-                e.set(floatArray2.get(j), floatArray2.get(j + 1));
+            s().set(floatArray2().get(floatArray2().size - 2), floatArray2().get(floatArray2().size - 1));
+            for(int j = 0; j < floatArray2().size; j += 2){
+                e().set(floatArray2().get(j), floatArray2().get(j + 1));
                 // determine if point is inside clip edge
-                if(Intersector.pointLineSide(ep2, ep1, e) > 0){
-                    if(!(Intersector.pointLineSide(ep2, ep1, s) > 0)){
-                        Intersector.intersectLines(s, e, ep1, ep2, ip);
-                        if(floatArray.size < 2 || floatArray.get(floatArray.size - 2) != ip.x
-                        || floatArray.get(floatArray.size - 1) != ip.y){
-                            floatArray.add(ip.x);
-                            floatArray.add(ip.y);
+                if(Intersector.pointLineSide(ep2(), ep1(), e()) > 0){
+                    if(!(Intersector.pointLineSide(ep2(), ep1(), s()) > 0)){
+                        Intersector.intersectLines(s(), e(), ep1(), ep2(), ip());
+                        if(floatArray().size < 2 || floatArray().get(floatArray().size - 2) != ip().x
+                        || floatArray().get(floatArray().size - 1) != ip().y){
+                            floatArray().add(ip().x);
+                            floatArray().add(ip().y);
                         }
                     }
-                    floatArray.add(e.x);
-                    floatArray.add(e.y);
-                }else if(Intersector.pointLineSide(ep2, ep1, s) > 0){
-                    Intersector.intersectLines(s, e, ep1, ep2, ip);
-                    floatArray.add(ip.x);
-                    floatArray.add(ip.y);
+                    floatArray().add(e().x);
+                    floatArray().add(e().y);
+                }else if(Intersector.pointLineSide(ep2(), ep1(), s()) > 0){
+                    Intersector.intersectLines(s(), e(), ep1(), ep2(), ip());
+                    floatArray().add(ip().x);
+                    floatArray().add(ip().y);
                 }
-                s.set(e.x, e.y);
+                s().set(e().x, e().y);
             }
-            floatArray2.clear();
-            floatArray2.addAll(floatArray);
-            floatArray.clear();
+            floatArray2().clear();
+            floatArray2().addAll(floatArray());
+            floatArray().clear();
         }
 
-        return !(floatArray2.size == 0);
+        return !(floatArray2().size == 0);
     }
 
     /**
@@ -85,17 +94,17 @@ public final class Intersector{
      * @return whether the point is in the triangle
      */
     public static boolean isInTriangle(Vec3 point, Vec3 t1, Vec3 t2, Vec3 t3){
-        v0.set(t1).sub(point);
-        v1.set(t2).sub(point);
-        v2.set(t3).sub(point);
+        v0().set(t1).sub(point);
+        v1().set(t2).sub(point);
+        v2().set(t3).sub(point);
 
-        float ab = v0.dot(v1);
-        float ac = v0.dot(v2);
-        float bc = v1.dot(v2);
-        float cc = v2.dot(v2);
+        float ab = v0().dot(v1());
+        float ac = v0().dot(v2());
+        float bc = v1().dot(v2());
+        float cc = v2().dot(v2());
 
         if(bc * ac - cc * ab < 0) return false;
-        float bb = v1.dot(v1);
+        float bb = v1().dot(v1());
         return !(ab * bc - ac * bb < 0);
     }
 
@@ -109,13 +118,13 @@ public final class Intersector{
 
     /** @return whether the specified x,y is inside a regular polygon. */
     public static boolean isInRegularPolygon(int sides, float cx, float cy, float radius, float rotation, float x, float y){
-        floatArray.clear();
+        floatArray().clear();
         for(int i = 0; i < sides; i++){
-            s.trns(i * 360f / sides + rotation, radius);
-            floatArray.add(cx + s.x, cy + s.y);
+            s().trns(i * 360f / sides + rotation, radius);
+            floatArray().add(cx + s().x, cy + s().y);
         }
 
-        return isInPolygon(floatArray.items, 0, floatArray.size, x, y);
+        return isInPolygon(floatArray().items, 0, floatArray().size, x, y);
     }
 
     /** Returns true if the given point is inside the triangle. */
@@ -205,52 +214,52 @@ public final class Intersector{
             return false;
         }
         // reusable points to trace edges around polygon
-        floatArray2.clear();
-        floatArray.clear();
-        floatArray2.addAll(p1.getTransformedVertices());
+        floatArray2().clear();
+        floatArray().clear();
+        floatArray2().addAll(p1.getTransformedVertices());
         for(int i = 0; i < p2.getTransformedVertices().length; i += 2){
-            ep1.set(p2.getTransformedVertices()[i], p2.getTransformedVertices()[i + 1]);
+            ep1().set(p2.getTransformedVertices()[i], p2.getTransformedVertices()[i + 1]);
             // wrap around to beginning of array if index points to end;
             if(i < p2.getTransformedVertices().length - 2){
-                ep2.set(p2.getTransformedVertices()[i + 2], p2.getTransformedVertices()[i + 3]);
+                ep2().set(p2.getTransformedVertices()[i + 2], p2.getTransformedVertices()[i + 3]);
             }else{
-                ep2.set(p2.getTransformedVertices()[0], p2.getTransformedVertices()[1]);
+                ep2().set(p2.getTransformedVertices()[0], p2.getTransformedVertices()[1]);
             }
-            if(floatArray2.size == 0){
+            if(floatArray2().size == 0){
                 return false;
             }
-            s.set(floatArray2.get(floatArray2.size - 2), floatArray2.get(floatArray2.size - 1));
-            for(int j = 0; j < floatArray2.size; j += 2){
-                e.set(floatArray2.get(j), floatArray2.get(j + 1));
+            s().set(floatArray2().get(floatArray2().size - 2), floatArray2().get(floatArray2().size - 1));
+            for(int j = 0; j < floatArray2().size; j += 2){
+                e().set(floatArray2().get(j), floatArray2().get(j + 1));
                 // determine if point is inside clip edge
-                if(Intersector.pointLineSide(ep2, ep1, e) > 0){
-                    if(!(Intersector.pointLineSide(ep2, ep1, s) > 0)){
-                        Intersector.intersectLines(s, e, ep1, ep2, ip);
-                        if(floatArray.size < 2 || floatArray.get(floatArray.size - 2) != ip.x
-                        || floatArray.get(floatArray.size - 1) != ip.y){
-                            floatArray.add(ip.x);
-                            floatArray.add(ip.y);
+                if(Intersector.pointLineSide(ep2(), ep1(), e()) > 0){
+                    if(!(Intersector.pointLineSide(ep2(), ep1(), s()) > 0)){
+                        Intersector.intersectLines(s(), e(), ep1(), ep2(), ip());
+                        if(floatArray().size < 2 || floatArray().get(floatArray().size - 2) != ip().x
+                        || floatArray().get(floatArray().size - 1) != ip().y){
+                            floatArray().add(ip().x);
+                            floatArray().add(ip().y);
                         }
                     }
-                    floatArray.add(e.x);
-                    floatArray.add(e.y);
-                }else if(Intersector.pointLineSide(ep2, ep1, s) > 0){
-                    Intersector.intersectLines(s, e, ep1, ep2, ip);
-                    floatArray.add(ip.x);
-                    floatArray.add(ip.y);
+                    floatArray().add(e().x);
+                    floatArray().add(e().y);
+                }else if(Intersector.pointLineSide(ep2(), ep1(), s()) > 0){
+                    Intersector.intersectLines(s(), e(), ep1(), ep2(), ip());
+                    floatArray().add(ip().x);
+                    floatArray().add(ip().y);
                 }
-                s.set(e.x, e.y);
+                s().set(e().x, e().y);
             }
-            floatArray2.clear();
-            floatArray2.addAll(floatArray);
-            floatArray.clear();
+            floatArray2().clear();
+            floatArray2().addAll(floatArray());
+            floatArray().clear();
         }
-        if(floatArray2.size != 0){
+        if(floatArray2().size != 0){
             if(overlap != null){
-                if(overlap.getVertices().length == floatArray2.size)
-                    System.arraycopy(floatArray2.items, 0, overlap.getVertices(), 0, floatArray2.size);
+                if(overlap.getVertices().length == floatArray2().size)
+                    System.arraycopy(floatArray2().items, 0, overlap.getVertices(), 0, floatArray2().size);
                 else
-                    overlap.setVertices(floatArray2.toArray());
+                    overlap.setVertices(floatArray2().toArray());
             }
             return true;
         }else{
@@ -271,12 +280,12 @@ public final class Intersector{
 
     /** Returns the distance between the given segment and point. */
     public static float distanceSegmentPoint(float startX, float startY, float endX, float endY, float pointX, float pointY){
-        return nearestSegmentPoint(startX, startY, endX, endY, pointX, pointY, v2tmp).dst(pointX, pointY);
+        return nearestSegmentPoint(startX, startY, endX, endY, pointX, pointY, v2tmp()).dst(pointX, pointY);
     }
 
     /** Returns the distance between the given segment and point. */
     public static float distanceSegmentPoint(Vec2 start, Vec2 end, Vec2 point){
-        return nearestSegmentPoint(start, end, point, v2tmp).dst(point);
+        return nearestSegmentPoint(start, end, point, v2tmp()).dst(point);
     }
 
     /** Returns a point on the segment nearest to the specified point. */
@@ -311,21 +320,21 @@ public final class Intersector{
      * @return Whether the line segment and the circle intersect
      */
     public static boolean intersectSegmentCircle(Vec2 start, Vec2 end, Vec2 center, float squareRadius){
-        tmp.set(end.x - start.x, end.y - start.y, 0);
-        tmp1.set(center.x - start.x, center.y - start.y, 0);
-        float l = tmp.len();
-        float u = tmp1.dot(tmp.nor());
+        tmp().set(end.x - start.x, end.y - start.y, 0);
+        tmp1().set(center.x - start.x, center.y - start.y, 0);
+        float l = tmp().len();
+        float u = tmp1().dot(tmp().nor());
         if(u <= 0){
-            tmp2.set(start.x, start.y, 0);
+            tmp2().set(start.x, start.y, 0);
         }else if(u >= l){
-            tmp2.set(end.x, end.y, 0);
+            tmp2().set(end.x, end.y, 0);
         }else{
-            tmp3.set(tmp.scl(u)); // remember tmp is already normalized
-            tmp2.set(tmp3.x + start.x, tmp3.y + start.y, 0);
+            tmp3().set(tmp().scl(u)); // remember tmp() is already normalized
+            tmp2().set(tmp3().x + start.x, tmp3().y + start.y, 0);
         }
 
-        float x = center.x - tmp2.x;
-        float y = center.y - tmp2.y;
+        float x = center.x - tmp2().x;
+        float y = center.y - tmp2().y;
 
         return x * x + y * y <= squareRadius;
     }
@@ -346,11 +355,11 @@ public final class Intersector{
         float d = start.dst(end);
         u /= d * d;
         if(u < 0 || u > 1) return Float.POSITIVE_INFINITY;
-        tmp.set(end.x, end.y, 0).sub(start.x, start.y, 0);
-        tmp2.set(start.x, start.y, 0).add(tmp.scl(u));
-        d = tmp2.dst(point.x, point.y, 0);
+        tmp().set(end.x, end.y, 0).sub(start.x, start.y, 0);
+        tmp2().set(start.x, start.y, 0).add(tmp().scl(u));
+        d = tmp2().dst(point.x, point.y, 0);
         if(d < radius){
-            displacement.set(point).sub(tmp2.x, tmp2.y).nor();
+            displacement.set(point).sub(tmp2().x, tmp2().y).nor();
             return d;
         }else
             return Float.POSITIVE_INFINITY;

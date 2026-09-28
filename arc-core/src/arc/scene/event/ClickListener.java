@@ -108,8 +108,8 @@ public class ClickListener extends InputListener{
 
     /** Returns true if the specified position is over the specified element or within the tap square. */
     public boolean isOver(Element element, float x, float y){
-        element.localToStageCoordinates(Tmp.v1.set(x, y));
-        Element hit = Core.scene.hit(Tmp.v1.x, Tmp.v1.y, true);
+        element.localToStageCoordinates(Tmp.v1().set(x, y));
+        Element hit = Core.scene.hit(Tmp.v1().x, Tmp.v1().y, true);
         return hit != null && hit.isDescendantOf(element);
     }
 

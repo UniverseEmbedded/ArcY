@@ -33,7 +33,7 @@ public class CrtFilter extends FxFilter{
     @Override
     public void setParams(){
         shader.setUniformi("u_texture0", u_texture0);
-        shader.setUniformf("u_resolution", sizeSource == SizeSource.SCREEN ? Tmp.v1.set(Core.graphics.getWidth(), Core.graphics.getHeight()) : viewportSize);
+        shader.setUniformf("u_resolution", sizeSource == SizeSource.SCREEN ? Tmp.v1().set(Core.graphics.getWidth(), Core.graphics.getHeight()) : viewportSize);
     }
 
     /** Shader resolution parameter source. */
